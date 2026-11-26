@@ -166,6 +166,7 @@ export class DoubleEntryLedger {
     amountMinor,
     currency,
     provider = "webhook",
+    receiptFingerprint,
   }) {
     if (!isNonEmptyString(tenantId) || !isNonEmptyString(txRef)) {
       return { ok: false, status: 400, error: "missing_tenant_or_reference" };
@@ -197,12 +198,20 @@ export class DoubleEntryLedger {
       };
     }
 
-    const fingerprint = computeReceiptFingerprint({
-      provider,
-      txRef: normTxRef,
-      amountMinor,
-      currency: normCurrency,
-    });
+    let fingerprint;
+    if (receiptFingerprint !== undefined) {
+      if (typeof receiptFingerprint !== "string" || !/^[0-9a-fA-F]{64}$/.test(receiptFingerprint)) {
+        return { ok: false, status: 400, error: "invalid_receipt_fingerprint" };
+      }
+      fingerprint = receiptFingerprint.toLowerCase();
+    } else {
+      fingerprint = computeReceiptFingerprint({
+        provider,
+        txRef: normTxRef,
+        amountMinor,
+        currency: normCurrency,
+      });
+    }
     const fpKey = compositeKey(normTenant, fingerprint);
     if (this.seenFingerprints.has(fpKey)) {
       return {

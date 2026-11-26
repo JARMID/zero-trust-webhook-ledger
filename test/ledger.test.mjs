@@ -147,6 +147,20 @@ test("DoubleEntryLedger prevents colon-injection cross-tenant collisions, replay
   assert.equal(replay.status, 409);
   assert.equal(replay.error, "duplicate_transaction_reference");
 
+  // Replaying the same receipt fingerprint under a mutated txRef is also blocked with 409
+  const fpReplay = ledger.postTransfer({
+    tenantId: "a",
+    txRef: "BM-882419-MUTATED",
+    debitAccountId: "b:c",
+    creditAccountId: "merchant",
+    amountMinor: 150000,
+    currency: "DZD",
+    receiptFingerprint: first.entry.fingerprint,
+  });
+  assert.equal(fpReplay.ok, false);
+  assert.equal(fpReplay.status, 409);
+  assert.equal(fpReplay.error, "duplicate_receipt_fingerprint");
+
   // Integer overflow guard
   ledger.createAccount({
     tenantId: "a",

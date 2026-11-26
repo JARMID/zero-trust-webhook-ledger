@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS ledger_accounts (
 
 CREATE TABLE IF NOT EXISTS payment_receipt_locks (
     tenant_id       UUID NOT NULL,
-    tx_ref          TEXT NOT NULL,
+    tx_ref          TEXT NOT NULL CHECK (btrim(tx_ref) <> ''),
     receipt_sha256  CHAR(64) NOT NULL CHECK (receipt_sha256 ~ '^[0-9a-f]{64}$'),
     amount_minor    BIGINT NOT NULL CHECK (amount_minor > 0),
     currency        CHAR(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
@@ -86,10 +86,27 @@ SECURITY DEFINER
 SET search_path = pg_catalog, public
 AS $$
 DECLARE
-    v_debit   ledger_accounts%ROWTYPE;
-    v_credit  ledger_accounts%ROWTYPE;
-    v_locked  INT := 0;
+    v_session_tenant UUID;
+    v_debit          ledger_accounts%ROWTYPE;
+    v_credit         ledger_accounts%ROWTYPE;
+    v_locked         INT := 0;
 BEGIN
+    -- Bind SECURITY DEFINER execution to the active tenant GUC so no caller can spoof p_tenant_id
+    v_session_tenant := NULLIF(current_setting('app.current_tenant_id', true), '')::uuid;
+    IF v_session_tenant IS NULL OR p_tenant_id IS NULL OR v_session_tenant <> p_tenant_id THEN
+        RAISE EXCEPTION 'tenant_context_mismatch' USING ERRCODE = '42501';
+    END IF;
+
+    IF p_tx_ref IS NULL OR btrim(p_tx_ref) = '' THEN
+        RETURN QUERY SELECT 400, 'missing_tx_ref';
+        RETURN;
+    END IF;
+
+    IF p_debit_account_id IS NULL OR p_credit_account_id IS NULL THEN
+        RETURN QUERY SELECT 400, 'missing_account_ids';
+        RETURN;
+    END IF;
+
     IF p_amount_minor IS NULL OR p_amount_minor <= 0 THEN
         RETURN QUERY SELECT 400, 'amount_must_be_positive_integer';
         RETURN;
@@ -155,4 +172,7 @@ BEGIN
 END;
 $$;
 
+-- Own post_double_entry_transfer with a dedicated BYPASSRLS ledger-definer role (never superuser)
+-- or attach explicit INSERT/UPDATE RLS policies bound to app.current_tenant_id for the definer role.
+-- Grant EXECUTE strictly to trusted backend roles that always set SET LOCAL app.current_tenant_id.
 REVOKE ALL ON FUNCTION post_double_entry_transfer(UUID, TEXT, CHAR, UUID, UUID, BIGINT, CHAR) FROM PUBLIC;
