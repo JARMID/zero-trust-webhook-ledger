@@ -1,0 +1,25 @@
+{
+  "name": "zero-trust-webhook-ledger",
+  "version": "1.0.0",
+  "description": "Timing-safe HMAC-SHA256 webhook verifier, anti-replay idempotency guard, and PostgreSQL FORCE RLS double-entry ledger reference kit.",
+  "type": "module",
+  "main": "src/index.mjs",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "keywords": [
+    "security",
+    "hmac",
+    "anti-replay",
+    "double-entry-ledger",
+    "postgresql",
+    "rls",
+    "fintech",
+    "webhooks"
+  ],
+  "author": "Khalef Abdelmadjid (@JARMID)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
