@@ -87,11 +87,12 @@ const settlement = ledger.postTransfer({
 
 ## PostgreSQL Reference Schema
 
-See [`sql/001_zero_trust_ledger_rls.sql`](sql/001_zero_trust_ledger_rls.sql) for the production table layout:
+See [`sql/001_zero_trust_ledger_rls.sql`](sql/001_zero_trust_ledger_rls.sql) for the production table layout and stored procedure:
 
 - Integer `BIGINT` minor units (`CHECK (balance_minor >= 0)`), avoiding floating-point rounding drift.
-- Composite primary key `(tenant_id, tx_ref)` and unique receipt SHA-256 fingerprint constraint.
-- `ENABLE ROW LEVEL SECURITY` paired with `FORCE ROW LEVEL SECURITY` and `REVOKE INSERT, UPDATE, DELETE ... FROM PUBLIC`.
+- Composite tenant foreign keys `(tenant_id, account_id)` and `(tenant_id, tx_ref)` plus unique receipt SHA-256 fingerprint constraint.
+- `ENABLE ROW LEVEL SECURITY` paired with `FORCE ROW LEVEL SECURITY`, `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid`, and `REVOKE INSERT, UPDATE, DELETE, TRUNCATE ... FROM PUBLIC`.
+- `post_double_entry_transfer(...)` `SECURITY DEFINER` function (`SET search_path = pg_catalog, public`) locking both accounts in deterministic `ORDER BY id ASC FOR UPDATE` order.
 
 ## License
 
